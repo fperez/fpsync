@@ -1,0 +1,26 @@
+# files to exclude from synchronization
+
+# These can't be synced anywhere
+.DS_Store
+.localized
+
+ref/calibre
+
+# Location where I install machine-dependent stuff that I don't want
+# synchronized across computers.
+usr/opt
+
+# Dropbox manages its own syncing, so it should be skipped
+usr/Dropbox
+
+.ipython/profile*/log
+.ipython/profile*/security
+.ipython/profile*/pid
+
+.ipython/cython
+
+# Some of the lyx files shouldn't be synced
+.lyx/preferences
+.lyx/lyxpipe.in
+.lyx/lyxpipe.out
+.lyx/cache
