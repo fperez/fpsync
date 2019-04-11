@@ -1,0 +1,228 @@
+#!/usr/bin/env python
+"""fpsync --- Directory synchronization utility.
+
+USAGE
+
+  fpsync [options] up|down|sync
+
+This script updates a family of directories which exist in two different
+places in the filesystem.  It is meant for updating a laptop to a server (in
+either direction), where the server's directory is NFS mounted in the laptop,
+or with password-less ssh logins.
+
+The list of files and directories to be updated is given in a python
+configuration file, located by default in either ~/.fpsyncrc.py or
+~/usr/etc/fpsyncrc.py (use the -config option to override).
+
+
+MANDATORY ARGUMENTS
+
+- A mode, which must be 'up', 'down' or 'sync', indicating the direction for
+the update process.
+
+
+OPTIONS
+
+Options can be abbreviated to their shortest non-ambiguous form.
+
+  -config <filename>: name of the configuration file which defines the files
+  and directories to be updated, to override the defaults.
+
+  -dry-run: this option is passed directly to rsync. It allows you to see
+  what rsync would do without actually performing it.
+
+  -help: print this message and exit.
+
+  -debug: run in debug mode. Only print the system calls to be made without
+  executing them.
+
+  -verbose: print all system calls to stdout.
+"""
+__author__  = 'Fernando Perez <fperez@colorado.edu>'
+__version__ = '0.1'
+__date__    = 'Wed Mar 26 19:55:01 MST 2003'
+
+#***************************************************************************
+
+# Standard library modules
+import os
+import subprocess
+
+
+# Default values, all can be overridden with cmd line flags
+HOST = 'longs'
+# The dot in START_DIR is there to give properly assembled paths starting at
+# $HOME if / is added
+START_DIR = '.'
+EXCLUDES = '~/usr/etc/fpsyncrc.excludes'
+
+# Misc Constants
+SEPARATOR = '-'*78
+
+
+# Class and function definitions
+class FoundIt(Exception): pass
+
+
+def system(cmd):
+    if system.verbose or system.debug:
+        print('***CMD***', cmd)
+    if not system.debug:
+        subprocess.call(cmd, shell=False)
+
+system.verbose = False
+system.debug = False
+
+
+def init():
+    """Initialization and command-line processing.
+
+    It creates the global names:
+     - sysx: instance of SystemExec, can be used for system calls.
+     - system: alias to sysx.system.
+
+    Returns an options namespace."""
+
+    # Names and default values for command-line options
+    import argparse
+    parser = argparse.ArgumentParser(
+        description='Sync two directories')
+    arg = parser.add_argument
+
+    arg('-n', '--dry-run', action='store_true')
+    arg('-d', '--debug', action='store_true')
+    arg('-v', '--verbose', action='store_true')
+    arg('-c', '--config', type=str)
+    arg('-H', '--host', default=HOST)
+    arg('-s', '--start-dir', default=START_DIR)
+    arg('-e', '--excludes', default=EXCLUDES)
+
+    arg('mode', choices=['up', 'down', 'sync'])
+    
+    # Process command line.
+    opt = parser.parse_args()
+
+    #print(opt);import sys; sys.exit()  # dbg
+
+    # Object to execute system calls
+    system.verbose = opt.verbose
+    system.debug = opt.debug
+    return opt
+
+
+def expand(arg):
+    """Expand ~ and $ variables in a string"""
+
+    return os.path.expanduser(os.path.expandvars(arg))
+
+
+def escape(s):
+    return '"%s"' % s
+
+
+def do_update(opt, to_update, mode, nodelete=''):
+    """Do the update according to the cfg structure and mode given"""
+
+    logname = expand('$HOME/.fpsync.log')
+    if os.path.isfile(logname):
+        os.remove(logname)
+
+    for entry in to_update:
+        # options to pass through to rsync
+
+        dir_from, dir_to = entry['dir1'], entry['dir2']
+        if mode == 'down':
+            dir_from, dir_to = dir_to, dir_from
+        command = ['dircopy', '--logname', logname, '--keeplog']
+        if nodelete:
+            command.append('--nodelete') # when syncing, prevent dircopy from deleting
+
+        rsopt = []
+        if opt.dry_run:
+            rsopt.append('--dry-run')
+        if entry['exclude_from']:
+            rsopt.append('--exclude-from={}'.format(
+                         expand(entry['exclude_from'])))
+        if rsopt:
+            command.extend(['--rsoptions', '"{}"'.format(' '.join(rsopt))])
+
+        if ':' in dir_from:
+            # Assemble the right command for a multiple-remote-files rsync
+            # call, which is a bit delicate.
+            host, base = dir_from.split(':', 1)
+            first, *rest = entry['to_update']
+            targets = ['{}:{}/{}'.format(host, base, first)]
+            for target in rest:
+                targets.append(':{}/{}'.format(base, target))
+            command.extend(targets)
+        else:
+            for target in entry['to_update']:
+                command.append('{}/{}'.format(expand(dir_from), target))
+
+        command.append(expand(dir_to))
+        print(SEPARATOR)
+        system(command)
+
+
+def main():
+    """Real logic goes here."""
+
+    opt = init()
+
+    # Load configuration file which defines a few globals
+    if opt.config:
+        config_files = (opt.config,)
+    else:
+        config_files = ('~/.fpsyncrc.py', '~/usr/etc/fpsyncrc.py')
+
+    try:
+        for config_file in config_files:
+            config_file = expand(config_file)
+            if os.path.isfile(config_file):
+                raise FoundIt
+    except FoundIt:
+        if opt.verbose:
+            print("*** Using config file:", config_file)
+    else:
+        raise RuntimeError("Config file not found in any of [%s]!" % config_files)
+
+    cfg = dict(host=opt.host, start_dir=opt.start_dir, 
+               excludes=opt.excludes)       
+    exec(open(config_file).read(), cfg)
+
+    #execfile(config_file,cfg)
+
+    must_exist = cfg['MUST_EXIST']
+    to_update_cfg = cfg['TO_UPDATE']
+
+    if 'at_startup' in cfg:
+        print(SEPARATOR)
+        print('Calling at_startup from user-supplied configuration...')
+        print()
+        cfg['at_startup']()
+        print()
+        print('Done with at_startup() operations.')
+
+    # MUST_EXIST can be either a single path or a list of them.  If it's more
+    # than one, they ALL must exist.
+    if isinstance(must_exist, str):
+        must_exist = [must_exist]
+    for must_file in must_exist:
+        if not os.path.exists(expand(must_file)):
+            raise RuntimeError("MUST_EXIST file/dir <%s> not found!" % must_file)
+
+    if opt.mode == 'sync':
+        do_update(opt, to_update_cfg, 'up', nodelete=True)
+        do_update(opt, to_update_cfg, 'down', nodelete=True)
+    else:
+        do_update(opt, to_update_cfg, opt.mode)
+
+    if 'at_exit' in cfg:
+        print(SEPARATOR)
+        print('Calling at_exit from user-supplied configuration...')
+        print()
+        cfg['at_exit']()
+
+
+if __name__ == '__main__':
+    main()

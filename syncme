@@ -1,0 +1,125 @@
+#!/usr/bin/env python
+"""syncme [options] [mode=sync]
+
+Sync the current directory with a similarly named dir in a target location.
+
+The mode argument must have a value in ('up','down','sync').  'up' or 'down'
+are both destructive one-directional copies, which consider either the local
+(up) or the remote (down) copy of the directory as a 'master', and delete
+files on the receiver which are not present in the sender.  The 'sync' mode
+synchronizes both directories to hold identical content, and for identically
+named files, the newer one wins.
+
+Note: this is just a thin wrapper around the dircopy utility.
+"""
+
+__author__  = 'Fernando Perez <fperez@colorado.edu>'
+__version__ = '0.1'
+
+#***************************************************************************
+# Standard library modules
+import argparse
+import getpass
+import os
+import subprocess
+
+#***************************************************************************
+
+# Default values, all can be overridden with cmd line flags
+HOST = 'longs'
+# The dot in START_DIR is there to give properly assembled paths starting at
+# $HOME if / is added
+START_DIR = '.'
+
+
+# NFS usage currently disabled
+#server_base_default_nfs = '~/bic'
+# if this file is found in the nfs path, we assume NFS is up
+#nfs_up_sentinel = '.bashrc'
+
+
+# Class and function definitions
+
+def system(cmd):
+
+    if system.verbose or system.debug:
+        print('***CMD***', cmd)
+    if not system.debug:
+        subprocess.call(cmd, shell=False)
+
+# These are the initial defaults. The actual runtime values are controlled by
+# cmd line flags.
+system.verbose = False
+system.debug = False
+
+
+def init():
+    """Initialization and command-line processing.
+
+    Returns  options.
+    """
+    # Names and default values for command-line options
+    parser = argparse.ArgumentParser(usage=__doc__)
+    newarg = parser.add_argument
+    newarg('--dry-run', action='store_true',
+           help='passed to rsync.')
+    newarg('--debug', action='store_true',
+           help='Print the system calls to be made without executing them.')
+    newarg('--verbose', action='store_true',
+           help='print all system calls to stdout.')
+    newarg('-H', '--host', default=HOST)
+    newarg('-s', '--start-dir', default=START_DIR)
+    newarg('-l', '--log', action='store_true')
+    newarg('mode', choices={'up', 'down', 'sync'})
+
+    # Process command line.
+    opt = parser.parse_args()
+
+    #print opt; sys.exit()  # dbg
+
+    # Object to execute system calls
+    system.verbose = opt.verbose
+    system.debug = opt.debug
+
+    return opt
+
+
+def main():
+    """Real logic goes here."""
+
+    opt = init()
+    mode = opt.mode
+
+    server_base = f'{opt.host}:{opt.start_dir}'
+
+    user = getpass.getuser()
+    cwd = os.getcwd()
+    # let's get the part beyond ~ in cwd:
+    source = cwd.split(user, 1)[1]
+
+    # Directories to sync
+    dir_from = cwd
+    dir_to   = server_base+source
+
+    # Build the rsync command
+    cmd = ['time', 'dircopy']
+    if not opt.log:  # default is not to log anything
+            cmd.append('--nolog')
+    if opt.dry_run: cmd.append('--dry-run')
+
+    if mode == 'down':
+        # swap to/from
+        dir_from, dir_to = dir_to, dir_from
+    elif mode == 'sync':
+        cmd.append('--sync')
+    elif mode != 'up':
+        raise (ValueError, 'invalid mode, must be one of `up`, `down` or `sync`')
+    cmd.extend([dir_from+'/', dir_to])
+    #print(cmd)   # dbg
+    print("Sync remote target:", server_base)
+    system(cmd)
+
+
+if __name__ == '__main__':
+
+    main()
