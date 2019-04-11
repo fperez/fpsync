@@ -1,8 +1,11 @@
-# files to exclude from synchronization
+# files to exclude from synchronization with UCB server
 
 # These can't be synced anywhere
 .DS_Store
 .localized
+.pytest_cache
+.hypothesis
+__pycache__
 
 ref/calibre
 
@@ -10,14 +13,22 @@ ref/calibre
 # synchronized across computers.
 usr/opt
 
-# Dropbox manages its own syncing, so it should be skipped
-usr/Dropbox
+
+# Skip VSCode's user cache
+User/workspaceStorage
 
 .ipython/profile*/log
 .ipython/profile*/security
 .ipython/profile*/pid
+.ipython/profile*/history.sqlite
 
 .ipython/cython
+.ipython/fortran
+
+Jupyter/runtime
+
+Library/Jupyter/nbsignatures.db
+Jupyter/nbsignatures.db
 
 # Some of the lyx files shouldn't be synced
 .lyx/preferences
