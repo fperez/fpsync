@@ -49,12 +49,32 @@ import os
 import subprocess
 
 
+def expand(arg):
+    """Expand ~ and $ variables in a string"""
+
+    return os.path.expanduser(os.path.expandvars(arg))
+
+
+def first_existing(paths):
+    """Return first existing path in `paths`"""
+    for p in paths:
+        if os.path.exists(expand(p)):
+            return p
+
+
 # Default values, all can be overridden with cmd line flags
 HOST = 'longs'
 # The dot in START_DIR is there to give properly assembled paths starting at
 # $HOME if / is added
 START_DIR = '.'
-EXCLUDES = '~/usr/etc/fpsyncrc.excludes'
+EXCLUDES = first_existing([
+    '~/usr/etc/fpsyncrc.excludes',
+    '~/.config/fpsync/fpsyncrc.excludes',
+    os.path.join(
+        os.path.dirname(os.path.realpath(__file__)),
+        'fpsyncrc.excludes'
+    )
+])
 
 # Misc Constants
 SEPARATOR = '-'*78
@@ -108,12 +128,6 @@ def init():
     system.verbose = opt.verbose
     system.debug = opt.debug
     return opt
-
-
-def expand(arg):
-    """Expand ~ and $ variables in a string"""
-
-    return os.path.expanduser(os.path.expandvars(arg))
 
 
 def escape(s):
@@ -195,7 +209,8 @@ def main():
     if opt.config:
         config_files = (opt.config,)
     else:
-        config_files = ('~/.fpsyncrc.py', '~/usr/etc/fpsyncrc.py')
+        config_files = ('~/.fpsyncrc.py', '~/.config/fpsync/fpsyncrc.py',
+                        '~/usr/etc/fpsyncrc.py')
 
     try:
         for config_file in config_files:
