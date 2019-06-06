@@ -208,7 +208,6 @@ def main():
     if opt.Dsync:
         opt.sync = 2
 
-    print(f'DBG: cp_from: {cp_from}')  # dbg
     if opt.sync and not os.path.isdir(cp_from[0]):
         print('sync mode can only be invoked with two directories.',
               file=sys.stderr)
