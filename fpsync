@@ -120,6 +120,28 @@ def escape(s):
     return '"%s"' % s
 
 
+def which(program):
+    def is_exe(fpath):
+        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
+    fpath, fname = os.path.split(program)
+    if fpath:
+        if is_exe(program):
+            return program
+    else:
+        search_path = [
+            os.path.dirname(__file__),
+            os.path.dirname(os.path.realpath(__file__))  # in case this file is a symlink
+        ]
+        search_path.extend(os.environ["PATH"].split(os.pathsep))
+        for path in search_path:
+            exe_file = os.path.join(path, program)
+            if is_exe(exe_file):
+                return exe_file
+
+    raise RuntimeError(f'Could not locate binary `{program}`')
+
+
 def do_update(opt, to_update, mode, nodelete=''):
     """Do the update according to the cfg structure and mode given"""
 
@@ -133,7 +155,7 @@ def do_update(opt, to_update, mode, nodelete=''):
         dir_from, dir_to = entry['dir1'], entry['dir2']
         if mode == 'down':
             dir_from, dir_to = dir_to, dir_from
-        command = ['dircopy', '--logname', logname, '--keeplog']
+        command = [which('dircopy'), '--logname', logname, '--keeplog']
         if nodelete:
             command.append('--nodelete') # when syncing, prevent dircopy from deleting
 
