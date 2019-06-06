@@ -166,6 +166,10 @@ def do_update(opt, to_update, mode, nodelete=''):
     for entry in to_update:
         # options to pass through to rsync
 
+        dirset = entry.get('name')
+        if dirset:
+            print(f'\nSyncing {dirset}:')
+
         dir_from, dir_to = entry['dir1'], entry['dir2']
         if mode == 'down':
             dir_from, dir_to = dir_to, dir_from
