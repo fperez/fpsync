@@ -52,69 +52,57 @@ dict(dir1 = '~',
 # Main home directory sync, broken up  into several blocks, as I'm getting weird
 # failures that could be caused by the main one having become too large
 
-h = dict(dir1 = '~',
-         dir2 = server_home,
-         exclude_from = excludes,
-         )
+base = {
+    'dir1': '~',
+    'dir2': server_home,
+    'exclude_from': excludes
+}
 
-home = h.copy()
-home['to_update'] = """
-                    .bash_profile .bashrc .bashrc_virtualenv
-                    .bash_utils .bash_virtualenv_utils .bash_git_completion
-                    .emacs .emacs.conf.d .fonts
-                    .gitconfig .gitignore .gitk  .hgrc .hgignore
-                    .ipython .inputrc .ispell_english .ispell_spanish
-                    .jed .less .lesskey .lyx
-                    .mrconfig .nose.cfg .noserc
-                    .profile .pycheckrc .pypirc .pythonstartup.py .Rprofile
-                    .sig .starcluster-completion.sh .ssh .tmux.conf 
-                    Desktop Documents Pictures
-                    """.split()
+home = {
+    **base,
+    'to_update': """
+        .bash_profile .bashrc .bashrc_virtualenv
+        .bash_utils .bash_virtualenv_utils .bash_git_completion
+        .emacs .emacs.conf.d .fonts
+        .gitconfig .gitignore .gitk  .hgrc .hgignore
+        .ipython .inputrc .ispell_english .ispell_spanish
+        .jed .less .lesskey .lyx
+        .mrconfig .nose.cfg .noserc
+        .profile .pycheckrc .pypirc .pythonstartup.py .Rprofile
+        .sig .starcluster-completion.sh .ssh .tmux.conf
+        Desktop Documents Pictures""".split()
+}
 
 import platform as p
 if p.platform().startswith('Linux'):
     home['to_update'].append('R')
 
-# tmp - dbg
-#home['to_update'] = ['teach']
-
 dirs = """dev ipython jupyter misc prof ref research scratch
           talks teach texmf usr www
           """.split()
 
-hdirs = []
-for d in dirs:
-    hd = h.copy()
-    hd['to_update'] = [d]
-    hdirs.append(hd)
+other_homedirs = [{**base, 'to_update': [d]} for d in dirs]
 
 # .config directory
-config = dict(dir1 = pjoin('~', '.config'),
-              dir2 = pjoin(server_home, '.config'),
-              to_update = ['mc', 'flake8'],
-              exclude_from = excludes,
-              )
+config = {
+    'dir1': pjoin('~', '.config'),
+    'dir2': pjoin(server_home, '.config'),
+    'to_update' = ['mc', 'flake8'],
+    'exclude_from' = excludes
+}
 
 # First-level subdirs of ~/Library
 lib_path = 'Library'
-library = dict(dir1 = pjoin('~', lib_path),
-               dir2 = pjoin(server_home, lib_path),
-               to_update = ['Jupyter'],
-               exclude_from = excludes,
-               )
-
-# VSCode user data. It's in ~/Library, but since it's a nested path, I can't
-# use it
-code_path = 'Library/Application Support/Code'
-vscode = dict(dir1 = pjoin('~', code_path),
-              dir2 = pjoin(server_home, code_path),
-              to_update = ['User'],
-              exclude_from = excludes,
-              )
+library = {
+    'dir1': pjoin('~', lib_path),
+    'dir2': pjoin(server_home, lib_path),
+    'to_update': ['Jupyter'],
+    'exclude_from': excludes
+}
 
 # Create the list of configs to use in the update process
-TO_UPDATE = [config,
-             library,
-#             vscode,
-             home,
-             ] + hdirs
+TO_UPDATE = [
+    config,
+    library,
+    home
+] + other_homedirs
