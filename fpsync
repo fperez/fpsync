@@ -11,8 +11,9 @@ either direction), where the server's directory is NFS mounted in the laptop,
 or with password-less ssh logins.
 
 The list of files and directories to be updated is given in a python
-configuration file, located by default in either ~/.fpsyncrc.py or
-~/usr/etc/fpsyncrc.py (use the -config option to override).
+configuration file, located by default in either ~/.fpsyncrc.py,
+~/.config/fpsync/fpsyncrc.py or ~/usr/etc/fpsyncrc.py (use the -config
+option to override).
 
 
 MANDATORY ARGUMENTS
@@ -37,6 +38,7 @@ Options can be abbreviated to their shortest non-ambiguous form.
   executing them.
 
   -verbose: print all system calls to stdout.
+
 """
 __author__  = 'Fernando Perez <fperez@colorado.edu>'
 __version__ = '0.1'
